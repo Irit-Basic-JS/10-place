@@ -1,6 +1,7 @@
 import * as path from "path";
 import express from "express";
 import WebSocket from "ws";
+import bodyParser from "body-parser";
 
 const port = process.env.PORT || 5000;
 
@@ -40,8 +41,14 @@ for (const [colorIndex, colorValue] of colors.entries()) {
 }
 
 const app = express();
+app.use(bodyParser.json());
 
 app.use(express.static(path.join(process.cwd(), "client")));
+
+app.get("/api/colors", (req, res) => {
+  res.json({ colors: colors });
+});
+
 
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
@@ -53,6 +60,15 @@ const wss = new WebSocket.Server({
   noServer: true,
 });
 
+wss.on('connection', function connection(ws) {
+  ws.on('message', function incoming(message) {
+    console.log('received: %s', message);
+  });
+
+  ws.send(JSON.stringify({type: 'paint', payload: place}));
+});
+
+
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, req.headers.origin);
   console.log(url);
@@ -60,3 +76,5 @@ server.on("upgrade", (req, socket, head) => {
     wss.emit("connection", ws, req);
   });
 });
+
+
