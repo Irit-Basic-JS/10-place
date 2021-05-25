@@ -31,6 +31,7 @@ const colors = [
   "#deeed6",
 ];
 
+const connections = new WeakMap();
 const size = 256;
 // place(x, y) := place[x + y * size]
 const place = Array(size * size).fill(null);
@@ -63,6 +64,13 @@ const wss = new WebSocket.Server({
 wss.on('connection', function connection(ws) {
   ws.on('message', function incoming(message) {
     console.log('received: %s', message);
+    const data = JSON.parse(message).payload;
+    place[data.x + data.y * size] = data.color;
+    wss.clients.forEach(function each(client) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({type: 'putPoint', payload: place}));
+      }
+    });
   });
 
   ws.send(JSON.stringify({type: 'paint', payload: place}));
@@ -71,10 +79,16 @@ wss.on('connection', function connection(ws) {
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, req.headers.origin);
-  console.log(url);
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit("connection", ws, req);
-  });
+  let apiKey = url.searchParams.get('apiKey');
+  if(apiKeys.has(apiKey)) {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      connections.set(ws, apiKey);
+      wss.emit("connection", ws, req);
+    });
+  } else {
+    console.log("Уничтожен "+apiKey)
+    socket.destroy()
+  }
 });
 
 

@@ -12,15 +12,9 @@ const main = apiKey => {
     const ws = connect(apiKey);
     ws.addEventListener("message", m => {
         let data = JSON.parse(m.data);
-        if (data.type === "paint")
+        if (data.type === "paint" || data.type === "putPoint")
             drawer.putArray(data.payload);
-        else if (data.type === "timeout") {
-            console.log(`You can draw at ${data.nextTime}`);
-            timeout.next = new Date(data.nextTime);
-        }
-
     });
-
 
     drawer.onClick = (x, y) => {
         ws.send(JSON.stringify({
