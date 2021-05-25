@@ -1,6 +1,7 @@
 import * as path from "path";
 import express from "express";
 import WebSocket from "ws";
+import picker from "./client/picker.mjs";
 
 const port = process.env.PORT || 5000;
 
@@ -10,6 +11,15 @@ const apiKeys = new Set([
   "4b1545c4-4a70-4727-9ea1-152ed4c84ae2",
   "4a226908-aa3e-4a34-a57d-1f3d1f6cba84",
 ]);
+
+drawer.onClick = (x,y) => {
+  ws.send(JSON.stringify({
+    type: 'placeSet',
+    payload: {
+      x, y, color: picker.color,
+    }
+  }))
+};
 
 const colors = [
   "#140c1c",
