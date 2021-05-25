@@ -29,6 +29,7 @@ const colors = [
   "#6dc2ca",
   "#dad45e",
   "#deeed6",
+  "#ffffff"
 ];
 
 const connections = new WeakMap();
