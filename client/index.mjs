@@ -13,14 +13,15 @@ const main = apiKey => {
 	ws.addEventListener("message", function (ev) {
 		const params = JSON.parse(ev.data);
 		console.log(params);
-		if (params.type === "update"){
+		if (params.type === "update") {
 			drawer.put(params.payload.x, params.payload.y, params.payload.color);
-		} else if (params.type === "connection"){
+		} else if (params.type === "connection") {
 			drawer.putArray(params.payload);
+		} else if (params.type === "timeout") {
+			timeout.next = new Date(params.payload.next);
 		}
 	});
 	
-	timeout.next = new Date();
 	drawer.onClick = (x, y) => {
 		ws.send(JSON.stringify({
 			type: "putColor",

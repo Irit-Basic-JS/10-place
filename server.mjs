@@ -10,6 +10,7 @@ const apiKeys = new Set([
 	"4b1545c4-4a70-4727-9ea1-152ed4c84ae2",
 	"4a226908-aa3e-4a34-a57d-1f3d1f6cba84",
 ]);
+const connections = new WeakMap();
 
 const colors = [
 	"#140c1c",
@@ -59,7 +60,14 @@ const wss = new WebSocket.Server({
 wss.on("connection", function connection(ws) {
 	ws.on("message", function incoming(message) {
 		const data = JSON.parse(message).payload;
-		if (data.x < size && data.y < size && colors.includes(data.color)) {
+		const now = new Date();
+		const connection = connections.get(ws);
+		const next = new Date(connection.next);
+		if (data.x < size && data.y < size && colors.includes(data.color) && next < now) {
+			connections.set(ws, {
+				apiKey: connection.apiKey,
+				next: new Date(now.valueOf() + 2 * 1000).toISOString(),
+			});
 			place[data.x + data.y * size] = data.color;
 			wss.clients.forEach(function (client) {
 				if (client.readyState === WebSocket.OPEN) {
@@ -73,6 +81,11 @@ wss.on("connection", function connection(ws) {
 					}));
 				}
 			});
+		} else {
+			ws.send(JSON.stringify({
+				type: "timeout",
+				next: connections.get(ws),
+			}));
 		}
 	});
 	
@@ -85,8 +98,19 @@ wss.on("connection", function connection(ws) {
 
 server.on("upgrade", (req, socket, head) => {
 	const url = new URL(req.url, req.headers.origin);
-	console.log(url);
-	wss.handleUpgrade(req, socket, head, (ws) => {
-		wss.emit("connection", ws, req);
-	});
+	const apiKey = url.searchParams.get("apiKey");
+	if (apiKeys.has(apiKey)) {
+		wss.handleUpgrade(req, socket, head, (ws) => {
+			const now = new Date();
+			const next = new Date(now.valueOf() + 1000 * 2).toISOString();
+			connections.set(ws, {
+				apiKey: apiKey,
+				next: next,
+			});
+			wss.emit("connection", ws, req);
+			
+		});
+	} else {
+		socket.destroy();
+	}
 });
