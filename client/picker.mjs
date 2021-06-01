@@ -6,6 +6,7 @@ const setAttributes = (element, object) => {
 
 const drawPalette = async () => {
   const colors = hardcodedColors;
+  const colors = await (await fetch('/api/colors')).json();
   pickedColor = colors[0];
   const palette = document.querySelector("#palette");
   const fragment = document.createDocumentFragment();
@@ -51,11 +52,9 @@ const hardcodedColors = [
 let pickedColor = null;
 
 drawPalette().catch(console.error);
-
 const picker = {
   get color() {
     return pickedColor;
   }
 };
-
 export default picker;
