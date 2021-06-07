@@ -5,7 +5,8 @@ const setAttributes = (element, object) => {
 };
 
 const drawPalette = async () => {
-  const colors = hardcodedColors;
+  const response = await fetch('/api/colors');
+  const colors = await response.json();
   pickedColor = colors[0];
   const palette = document.querySelector("#palette");
   const fragment = document.createDocumentFragment();
@@ -37,16 +38,6 @@ const drawPalette = async () => {
   palette.appendChild(fragment);
 };
 
-const hardcodedColors = [
-  "#140c1c",
-  "#30346d",
-  "#854c30",
-  "#d04648",
-  "#597dce",
-  "#8595a1",
-  "#d2aa99",
-  "#dad45e",
-];
 
 let pickedColor = null;
 
