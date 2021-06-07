@@ -30,6 +30,19 @@ const colors = [
   "#deeed6",
 ];
 
+const intervals = {};
+
+apiKeys.forEach((apiKey) => { intervals[apiKey] = randomSeconds(10,60) });
+
+function randomSeconds(min, max) {
+  let rand = min + Math.random() * (max + 1 - min);
+  return 1000 * Math.floor(rand);
+}
+
+const connections = new WeakMap();
+
+const timeouts = {};
+
 const size = 256;
 // place(x, y) := place[x + y * size]
 const place = Array(size * size).fill(null);
@@ -43,6 +56,10 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+app.get('/getColors', (_, res) => {
+  res.send(colors);
+});
+
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
@@ -53,10 +70,43 @@ const wss = new WebSocket.Server({
   noServer: true,
 });
 
+wss.on('connection', function connection(ws) {
+  ws.on('message', function incoming(message) {
+    console.log('received: %s', message);
+    let parsedMessage = JSON.parse(message).payload;
+    console.log(parsedMessage);
+    if (!(parsedMessage.x < size && parsedMessage.y < size && colors.includes(parsedMessage.color))) throw new Error();
+      place[parsedMessage.x + parsedMessage.y * size] = parsedMessage.color;
+      wss.clients.forEach(function each(client) {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: "updatePayload",
+            payload: {
+              x: parsedMessage.x,
+              y: parsedMessage.y,
+              color: parsedMessage.color,
+            },
+          }));
+        }
+      });
+
+    ws.send(JSON.stringify( {
+      type: 'connection',
+      playload: place,
+    }));
+  });
+});
+
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, req.headers.origin);
-  console.log(url);
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit("connection", ws, req);
-  });
+  let apiKey = url.searchParams.get('apiKey');
+  if (apiKeys.has(apiKey)) {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      connections.set(ws, apiKey);
+      wss.emit("connection", ws, req);
+    });
+  } else {
+    console.log("Уничтожен " + apiKey)
+    socket.destroy()
+  }
 });
