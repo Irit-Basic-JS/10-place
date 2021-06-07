@@ -1,5 +1,3 @@
-import timeout from "./timeout.mjs";
-import drawer from "./drawer.mjs";
 import picker from "./picker.mjs";
 
 document.querySelector("#start").addEventListener("submit", e => {
@@ -10,29 +8,20 @@ document.querySelector("#start").addEventListener("submit", e => {
 
 const main = apiKey => {
   const ws = connect(apiKey);
-  ws.addEventListener("message", message => {
-    const data = JSON.parse(message.data);
-    switch(data.type){
-      case 'renderMap':
-        drawer.putArray(data.payload);
-        break;
-      case 'drawPoint':
-        drawer.putArray(data.payload);
-        break;
-      case 'timeout':
-        console.log(`You can draw at ${data.nextTime}`);
-        timeout.next = new Date(data.nextTime);
-        break;
-    }
+  ws.addEventListener("message", m => {
+    let data = JSON.parse(m.data);
+    if (data.type === "paint" || data.type === "putPoint")
+      drawer.putArray(data.payload);
   });
-  drawer.onClick = (x,y) => {
+
+  drawer.onClick = (x, y) => {
     ws.send(JSON.stringify({
-      type: 'placeSet',
+      type: 'putPoint',
       payload: {
         x, y, color: picker.color,
       }
     }))
-  }
+  };
 };
 
 const connect = apiKey => {

@@ -1,6 +1,7 @@
 import * as path from "path";
 import express from "express";
 import WebSocket from "ws";
+import bodyParser from "body-parser";
 
 const port = process.env.PORT || 5000;
 
@@ -10,7 +11,6 @@ const apiKeys = new Set([
   "4b1545c4-4a70-4727-9ea1-152ed4c84ae2",
   "4a226908-aa3e-4a34-a57d-1f3d1f6cba84",
 ]);
-
 const colors = [
   "#140c1c",
   "#442434",
@@ -28,21 +28,10 @@ const colors = [
   "#6dc2ca",
   "#dad45e",
   "#deeed6",
+  "#ffffff"
 ];
 
-const intervals = {};
-
-apiKeys.forEach((apiKey)=>{intervals[apiKey] = randomSeconds(10,60)});
-
-function randomSeconds(min, max) {
-  let rand = min + Math.random() * (max + 1 - min);
-  return 1000*Math.floor(rand);
-}
-
 const connections = new WeakMap();
-
-const timeouts = {};
-
 const size = 256;
 // place(x, y) := place[x + y * size]
 const place = Array(size * size).fill(null);
@@ -53,44 +42,37 @@ for (const [colorIndex, colorValue] of colors.entries()) {
 }
 
 const app = express();
+app.use(bodyParser.json());
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
-app.get('/api/colors',(_,res)=>{
-  res.send(colors);
+app.get("/api/colors", (req, res) => {
+  res.json({ colors: colors });
 });
+
 
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
-
 const server = app.listen(port);
-
 const wss = new WebSocket.Server({
   noServer: true,
 });
 
-wss.on("connection", function connection(ws) {
-  const key = connections.get(ws);
-  ws.on("message", function incoming(message) {
-    if (!timeouts[key] || timeouts[key] < new Date()){
-      console.log("received: %s", message);
-      const data = JSON.parse(message).payload;
-      place[data.x + data.y * size] = data.color;
-      const now = new Date();
-      timeouts[key] = new Date(now.valueOf()+intervals[key]);
-      wss.clients.forEach(function each(client) {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({type: 'drawPoint', payload: place}));
-        };
-      });
-    }else{
-      ws.send(JSON.stringify({type: 'timeout', nextTime:timeouts[key]}));
-    }
+wss.on('connection', function connection(ws) {
+  ws.on('message', function incoming(message) {
+    console.log('received: %s', message);
+    const data = JSON.parse(message).payload;
+    place[data.x + data.y * size] = data.color;
+    wss.clients.forEach(function each(client) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({type: 'putPoint', payload: place}));
+      }
+    });
   });
-  ws.send(JSON.stringify({type: 'renderMap', payload: place}));
-});
 
+  ws.send(JSON.stringify({type: 'paint', payload: place}));
+});
 
 
 server.on("upgrade", (req, socket, head) => {
