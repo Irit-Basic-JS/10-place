@@ -30,10 +30,6 @@ const colors = [
 	"#deeed6",
 ];
 
-app.get('/getColors', (req, res) => {
-	res.send(colors);
-});
-
 const size = 256;
 // place(x, y) := place[x + y * size]
 const place = Array(size * size).fill(null);
@@ -47,6 +43,10 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+app.get('/getColors', (_, res) => {
+	res.send(colors);
+});
+
 app.get("/*", (_, res) => {
 	res.send("Place(holder)");
 });
@@ -54,7 +54,34 @@ app.get("/*", (_, res) => {
 const server = app.listen(port);
 
 const wss = new WebSocket.Server({
-	noServer: true,
+	noServer: true
+});
+
+wss.on('connection', function connection(ws) {
+	ws.on('message', function incoming(message) {
+		console.log('received: %s', message);
+		let parsedMessage = JSON.parse(message).payload;
+		console.log(parsedMessage);
+		if (!(parsedMessage.x < size && parsedMessage.y < size && colors.includes(parsedMessage.color))) throw new Error();
+		place[parsedMessage.x + parsedMessage.y * size] = parsedMessage.color;
+		wss.clients.forEach(function each(client) {
+			if (client.readyState === WebSocket.OPEN) {
+				client.send(JSON.stringify({
+					type: "updatePayload",
+					payload: {
+						x: parsedMessage.x,
+						y: parsedMessage.y,
+						color: parsedMessage.color,
+					},
+				}));
+			}
+		});
+
+		ws.send(JSON.stringify({
+			type: "connection",
+			payload: place,
+		}));
+	});
 });
 
 server.on("upgrade", (req, socket, head) => {
