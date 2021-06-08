@@ -3,7 +3,7 @@ import express from "express";
 import WebSocket from "ws";
 
 const port = process.env.PORT || 5000;
-
+const connections = new WeakMap();
 const apiKeys = new Set([
 	"4a83051d-aad4-483e-8fc8-693273d15dc7",
 	"c08c9038-693d-4669-98cd-9f0dd5ef06bf",
@@ -86,8 +86,15 @@ wss.on('connection', function connection(ws) {
 
 server.on("upgrade", (req, socket, head) => {
 	const url = new URL(req.url, req.headers.origin);
+	let apiKey = url.searchParams.get('apiKey');
 	console.log(url);
-	wss.handleUpgrade(req, socket, head, (ws) => {
-		wss.emit("connection", ws, req);
-	});
+	if (apiKeys.has(apiKey)) {
+		wss.handleUpgrade(req, socket, head, (ws) => {
+			wss.emit("connection", ws, req);
+			connections.set(ws, apiKey);
+		});
+	} else {
+		console.log("Кудаааа прееееш " + apiKey)
+		socket.destroy()
+	}
 });
