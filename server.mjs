@@ -43,6 +43,10 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+app.get('/api/colors',(_,res)=>{
+  res.send(colors);
+});
+
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
@@ -53,10 +57,42 @@ const wss = new WebSocket.Server({
   noServer: true,
 });
 
+wss.on('connection', function connection(ws) {
+  ws.on('message', function incoming(message) {
+      console.log('received: %s', message);
+      const data = JSON.parse(message);
+      if (data.type === 'draw' && data.payload.x >= 0 && data.payload.x < size 
+       && data.payload.y >= 0
+       && data.payload.y < size
+       && colors.includes(data.payload.color)) {
+
+          place[data.payload.y * size + data.payload.x] = data.payload.color;
+          wss.clients.forEach(function each(client) {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({type: 'draw', payload: place}));
+              }
+          });
+      }
+      else{
+        ws.send(JSON.stringify({type: 'timeout', nextTime:timeouts[key]}));
+      }
+  });
+  ws.send(JSON.stringify({
+      type: 'render',
+      payload: place,
+  }));
+});
+
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, req.headers.origin);
   console.log(url);
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit("connection", ws, req);
-  });
+  let apiKey = url.searchParams.get('apiKey');
+  if(apiKeys.has(apiKey)) 
+    wss.handleUpgrade(req, socket, head, (ws) => 
+      {
+        сonnections.set(ws, apiKey);
+        wss.emit("connection", ws, req);
+      }); 
+  else
+    socket.destroy()
 });

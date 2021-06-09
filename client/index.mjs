@@ -10,12 +10,24 @@ document.querySelector("#start").addEventListener("submit", e => {
 
 const main = apiKey => {
   const ws = connect(apiKey);
-  ws.addEventListener("message", console.log);
+  ws.addEventListener("message", (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'render') 
+      drawer.putArray(data.payload);
+    if (data.type === 'draw') 
+      drawer.putArray(data.payload);
+    if (data.type === 'timeout') 
+      timeout.next = new Date(data.nextTime);
+});
 
-  timeout.next = new Date();
-  drawer.onClick = (x, y) => {
-    drawer.put(x, y, picker.color);
-  };
+drawer.onClick = (x,y) => {
+  ws.send(JSON.stringify({
+    type: 'placeSet',
+    payload: {
+      x, y, color: picker.color,
+    }
+  }))
+}
 };
 
 const connect = apiKey => {
