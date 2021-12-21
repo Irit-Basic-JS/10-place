@@ -59,25 +59,33 @@ const wss = new WebSocket.Server({
     noServer: true,
 });
 
+const timeoutValue = 10;
+
+function pickValidation(x, y, color) {
+    return 0 <= x && x <= 256 &&
+        0 <= y && y <= 256 &&
+        colors.includes(color);
+}
+
 wss.on('connection', function connection(ws) {
+    let apiKey = keysMap.get(ws);
     ws.on('message', function message(message) {
+        let date = new Date();
         let data = JSON.parse(message);
-        let x, y, color, date;
-        if (data.type === "pick" &&
-            0 <= (x = data.payload.x) && x <= 256 &&
-            0 <= (y = data.payload.y) && y <= 256 &&
-            colors.includes(color = data.payload.color)) {
-            if ((date = new Date()) > apiKeys[keysMap.get(ws)]) {
-                console.log(`${date.toTimeString()} > ${apiKeys[keysMap.get(ws)].toTimeString()}`)
-                apiKeys[keysMap.get(ws)] = new Date(date.valueOf() + 10 * 1000);
-                place[data.payload.x + data.payload.y * size] = color;
-                wss.clients.forEach(client => client.send(message));
+        if (data.type === "pick") {
+            let {x, y, color} = data.payload;
+            if (pickValidation(x, y, color)) {
+                if (date > apiKeys[apiKey]) {
+                    apiKeys[apiKey] = new Date(date.valueOf() + timeoutValue * 1000);
+                    place[x + y * size] = color;
+                    wss.clients.forEach(client => client.send(message));
+                }
+                ws.send(JSON.stringify({type: "timeout", payload: apiKeys[apiKey].toISOString()}));
             }
-            ws.send(JSON.stringify({type: "timeout", payload: apiKeys[keysMap.get(ws)].toISOString()}));
         }
     });
 
-    ws.send(JSON.stringify({type: "timeout", payload: apiKeys[keysMap.get(ws)].toISOString()}))
+    ws.send(JSON.stringify({type: "timeout", payload: apiKeys[apiKey].toISOString()}))
     ws.send(JSON.stringify({type: "place", payload: place}));
 });
 
@@ -85,14 +93,11 @@ let keysMap = new WeakMap()
 
 server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url, req.headers.origin);
-    console.log(url);
     let apiKey = url.searchParams.get('apiKey');
-    if (!(apiKey in apiKeys))
-        socket.destroy(new Error('wrong api key'));
-    else
-        wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+        if (apiKey in apiKeys) {
             keysMap.set(ws, apiKey);
             wss.emit("connection", ws, req);
-        });
-
+        } else socket.destroy(new Error('wrong api key'));
+    });
 });
