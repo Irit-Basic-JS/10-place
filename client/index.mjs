@@ -12,13 +12,20 @@ const main = apiKey => {
     const ws = connect(apiKey);
     ws.addEventListener("message", message => {
         let data = JSON.parse(message.data)
-        if (data.type === 'place') drawer.putArray(data.payload)
-        if (data.type === 'pick') drawer.put(data.payload.x, data.payload.y, data.payload.color);
+        if (data.type === 'timeout') {
+            timeout.next = new Date(data.payload);
+            console.log(`next time: ${new Date(data.payload).toTimeString()}`)
+        }
+        if (data.type === 'place') drawer.putArray(data.payload);
+        if (data.type === 'pick') {
+            console.log('pick')
+            drawer.put(data.payload.x, data.payload.y, data.payload.color);
+        }
     });
 
-    timeout.next = new Date();
     drawer.onClick = (x, y) => {
         ws.send(JSON.stringify({type: "pick", payload: {x: x, y: y, color: picker.color}}))
+        console.log(`pick on: ${new Date().toTimeString()}`)
     };
 };
 
