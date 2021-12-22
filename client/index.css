@@ -87,6 +87,7 @@
   font-family: "Courier New", monospace;
   display: flex;
   justify-content: center;
+  color: rgb(177, 17, 17);
 }
 
 .main__canvas {
