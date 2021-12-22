@@ -10,11 +10,19 @@ document.querySelector("#start").addEventListener("submit", e => {
 
 const main = apiKey => {
   const ws = connect(apiKey);
-  ws.addEventListener("message", console.log);
+  ws.addEventListener("message", m => {
+    let data = JSON.parse(m.data);
+    if (data.type === "paint" || data.type === "putPoint")
+      drawer.putArray(data.payload);
+  });
 
-  timeout.next = new Date();
   drawer.onClick = (x, y) => {
-    drawer.put(x, y, picker.color);
+    ws.send(JSON.stringify({
+      type: 'putPoint',
+      payload: {
+        x, y, color: picker.color,
+      }
+    }))
   };
 };
 

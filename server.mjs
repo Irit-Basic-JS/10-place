@@ -2,7 +2,7 @@ import * as path from "path";
 import express from "express";
 import WebSocket from "ws";
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 3030;
 
 const apiKeys = new Set([
   "4a83051d-aad4-483e-8fc8-693273d15dc7",
@@ -43,6 +43,10 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+app.get("/api/colors", (req,res) => {
+  res.json({colors: colors})
+})
+
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
@@ -51,6 +55,21 @@ const server = app.listen(port);
 
 const wss = new WebSocket.Server({
   noServer: true,
+});
+
+wss.on('connection', function connection(ws) {
+  ws.on('message', function message(message) {
+    console.log('received: %s', message);
+    const data = JSON.parse(message).payload;
+    place[data.x + data.y * size] = data.color;
+    wss.clients.forEach(function each(client) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({type: 'putPoint', payload: place}));
+      }
+    });
+  });
+
+  ws.send(JSON.stringify({type: 'paint', payload: place}));
 });
 
 server.on("upgrade", (req, socket, head) => {
