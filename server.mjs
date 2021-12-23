@@ -43,6 +43,11 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+app.get('/api/getColors', (req, resp) => {
+  console.log(colors)  
+  resp.json(colors)  
+})
+
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
@@ -50,8 +55,10 @@ app.get("/*", (_, res) => {
 const server = app.listen(port);
 
 const wss = new WebSocket.Server({
+  port: 3000,
   noServer: true,
 });
+
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, req.headers.origin);
@@ -60,3 +67,38 @@ server.on("upgrade", (req, socket, head) => {
     wss.emit("connection", ws, req);
   });
 });
+
+wss.on('open', function open() {
+
+});
+
+function sendField(ws) {
+  let result = {
+    type: 'place',
+    payload: {
+      place: place
+    }
+  };
+  ws.send(JSON.stringify(result));
+}
+
+function insertPlace(payload) {
+  place[size * payload.y + payload.x] = payload.color;
+  wss.clients.forEach(client => {
+    if(client.readyState == WebSocket.OPEN) {
+      sendField(client);
+    }
+  });
+}
+
+wss.on('connection', (ws) => {
+  ws.on('message', (message) => {
+    let parseData = JSON.parse(message);
+
+    if(parseData.type == 'click') {
+      insertPlace(parseData.payload);
+    }
+  })
+
+  sendField(ws)
+})
