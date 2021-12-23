@@ -10,11 +10,21 @@ document.querySelector("#start").addEventListener("submit", e => {
 
 const main = apiKey => {
   const ws = connect(apiKey);
-  ws.addEventListener("message", console.log);
+  ws.addEventListener("message", mes => {
+    const data = JSON.parse(mes?.data)
+    if (data.type === 'place')
+      drawer.putArray(data.payload['place']);
+    if (data.type === 'click')
+    drawer.put(data.payload.x, data.payload.y, data.payload.color);
+    if (data.type === 'error')
+    document.querySelector(".container").classList.remove("ready");
+  });
 
   timeout.next = new Date();
-  drawer.onClick = (x, y) => {
-    drawer.put(x, y, picker.color);
+  drawer.onClick = (x, y) => {ws.send(JSON.stringify({
+      type: "click",
+      payload: {x: x, y: y, color: picker.color}
+    }));
   };
 };
 
@@ -22,3 +32,4 @@ const connect = apiKey => {
   const url = `${location.origin.replace(/^http/, "ws")}?apiKey=${apiKey}`;
   return new WebSocket(url);
 };
+

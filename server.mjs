@@ -13,6 +13,7 @@ const apiKeys = new Set([
 
 const colors = [
   "#140c1c",
+  "#ffffff",
   "#442434",
   "#30346d",
   "#4e4a4e",
@@ -43,6 +44,10 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+app.get("/api/colors", (_, res) => {
+  res.json(colors);
+});
+
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
@@ -55,8 +60,40 @@ const wss = new WebSocket.Server({
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, req.headers.origin);
-  console.log(url);
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit("connection", ws, req);
-  });
+    let apiKey = url.searchParams.get('apiKey');
+    console.log(apiKey);
+    console.log(apiKeys.has(apiKey))
+    wss.handleUpgrade(req, socket, head, (ws) => {
+        if (apiKeys.has(apiKey)) {
+          console.log('ok');
+            //keysMap.set(ws, apiKey);
+            wss.emit("connection", ws, req);
+        } else{
+          ws.send(JSON.stringify({type: "error"}));
+          socket.destroy(new Error());
+        } 
+    });
 });
+
+wss.on('connection', function connection(ws) {
+  ws.on('message', function message(mes) {
+    let data = JSON.parse(mes);
+
+    if(data['type'] === "click") {
+      let {x, y, color} = data.payload;
+      if(validated(x, y, color)){
+      place[x + y * size] = color;
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(mes)
+        }
+      });}
+    }
+  });
+
+  ws.send(JSON.stringify({type: "place", payload: {place: place,}}));
+});
+
+function validated(x, y, color){
+  return 0<=x && x<=256 && 0<=y && y<=256 && colors.indexOf(color)+1;
+}
