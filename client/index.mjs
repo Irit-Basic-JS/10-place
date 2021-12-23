@@ -8,13 +8,35 @@ document.querySelector("#start").addEventListener("submit", e => {
   document.querySelector(".container").classList.add("ready");
 });
 
+const onFieldRecieved = (message) => {
+  console.log(message);
+
+  const data = JSON.parse(message?.['data'])
+  console.log(data);
+
+  switch (data['type']) {
+    case "place":
+      drawer.putArray(data['payload']['place']);
+      break;
+    case "click":
+      drawer.put(data.payload.x, data.payload.y, data.payload.color);
+      break;
+    case "timeout":
+      timeout.next = new Date(data.payload);
+      break;
+  }
+}
+
 const main = apiKey => {
   const ws = connect(apiKey);
-  ws.addEventListener("message", console.log);
+  ws.addEventListener("message", onFieldRecieved);
 
   timeout.next = new Date();
   drawer.onClick = (x, y) => {
-    drawer.put(x, y, picker.color);
+    ws.send(JSON.stringify({
+      type: "click",
+      payload: { x: x, y: y, color: picker.color }
+    }));
   };
 };
 

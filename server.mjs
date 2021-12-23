@@ -30,9 +30,17 @@ const colors = [
   "#deeed6",
 ];
 
+const timeoutLength = 30;
+let timeouts = {};
+
+for (let key of apiKeys) {
+  timeouts[key] = new Date();
+}
+console.log(timeouts);
+
 const size = 256;
-// place(x, y) := place[x + y * size]
 const place = Array(size * size).fill(null);
+
 for (const [colorIndex, colorValue] of colors.entries()) {
   for (let dx = 0; dx < size; dx++) {
     place[dx + colorIndex * size] = colorValue;
@@ -43,20 +51,86 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+app.get("/api/getColors", (_, res) => {
+  console.log(colors);
+  res.json(colors);
+});
+
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
 
-const server = app.listen(port);
+const server = app.listen(port, () =>
+  console.log(`App listening on port ${port}`));
 
 const wss = new WebSocket.Server({
   noServer: true,
 });
 
+let keyMap = new WeakMap();
+
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, req.headers.origin);
   console.log(url);
+  const apiKey = url.searchParams.get('apiKey');
+
   wss.handleUpgrade(req, socket, head, (ws) => {
+    if (!apiKeys.has(apiKey)) {
+      socket.destroy(new Error("Invalid API key!"));
+      return;
+    }
+    keyMap.set(ws, apiKey);
     wss.emit("connection", ws, req);
   });
+});
+
+function insertIntoPlace(ws, payload, apiKey) {
+  const date = new Date();
+
+  let [x, y, color] = [payload.x, payload.y, payload.color];
+
+  if (x >= 0 && x <= 256 &&
+    y >= 0 && y <= 256 &&
+    colors.includes(color)) {
+
+    if (date > timeouts[apiKey]) {
+      timeouts[apiKey] = new Date(date.valueOf() + timeoutLength * 1000);
+
+      place[x + size * y] = color;
+
+      wss.clients.forEach((ws) => {
+        if (ws.readyState === WebSocket.OPEN) {
+          sendField(ws);
+        }
+      });
+    }
+
+    sendField(ws, "timeout", timeouts[apiKey].toISOString());
+  }
+}
+
+function sendField(ws, type = "place", payload = { place }) {
+  const result = {
+    type,
+    payload,
+  }
+  ws.send(JSON.stringify(result));
+}
+
+wss.on('connection', function connection(ws) {
+  const apiKey = keyMap.get(ws);
+
+  ws.on('message', function message(message) {
+    const data = JSON.parse(message);
+    console.log('received: %s', data);
+
+    switch (data['type']) {
+      case ("click"): {
+        insertIntoPlace(ws, data['payload'], apiKey);
+      };
+    };
+  });
+
+  sendField(ws, "timeout", timeouts[apiKey].toISOString());
+  sendField(ws);
 });
