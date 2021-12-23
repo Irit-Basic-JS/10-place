@@ -3,7 +3,7 @@ import express from "express";
 import WebSocket from "ws";
 
 const port = process.env.PORT || 5000;
-
+const connections = new WeakMap();
 const apiKeys = new Set([
   "4a83051d-aad4-483e-8fc8-693273d15dc7",
   "c08c9038-693d-4669-98cd-9f0dd5ef06bf",
@@ -43,6 +43,10 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+app.get('/getColors', (_, res) => {
+  res.send(colors);
+});
+
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
@@ -53,10 +57,43 @@ const wss = new WebSocket.Server({
   noServer: true,
 });
 
+wss.on('connection', function connection(ws) {
+  ws.on('message', function incoming(message) {
+    console.log('received: %s', message);
+    let parsedMessage = JSON.parse(message).payload;
+    console.log(parsedMessage);
+    if (!(parsedMessage.x < size && parsedMessage.y < size && colors.includes(parsedMessage.color))) throw new Error();
+    place[parsedMessage.x + parsedMessage.y * size] = parsedMessage.color;
+    wss.clients.forEach(function each(client) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: "updatePayload",
+          payload: {
+            x: parsedMessage.x,
+            y: parsedMessage.y,
+            color: parsedMessage.color,
+          },
+        }));
+      }
+    });
+    ws.send(JSON.stringify({
+      type: "connection",
+      payload: place,
+    }));
+  });
+});
+
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, req.headers.origin);
+  let apiKey = url.searchParams.get('apiKey');
   console.log(url);
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit("connection", ws, req);
-  });
+  if (apiKeys.has(apiKey)) {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+      connections.set(ws, apiKey);
+    });
+  } else {
+    console.log("Кудаааа прееееш " + apiKey)
+    socket.destroy()
+  }
 });

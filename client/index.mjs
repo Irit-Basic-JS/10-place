@@ -10,11 +10,31 @@ document.querySelector("#start").addEventListener("submit", e => {
 
 const main = apiKey => {
   const ws = connect(apiKey);
-  ws.addEventListener("message", console.log);
+  ws.addEventListener("message", (message) => {
+    let data = JSON.parse(message.data);
+    let {x, y, color} = data.payload;
+    switch (data.type) {
+      case "updatePayload":
+        drawer.put(x, y, color);
+        break;
+      case "connection":
+        drawer.putArray(data.payload);
+        break;
+      default:
+        break;
+    }
+  });
 
   timeout.next = new Date();
   drawer.onClick = (x, y) => {
-    drawer.put(x, y, picker.color);
+    ws.send(JSON.stringify({
+      type: "putColor",
+      payload: {
+        x: x,
+        y: y,
+        color: picker.color,
+      }
+    }));
   };
 };
 
