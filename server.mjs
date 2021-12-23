@@ -13,6 +13,7 @@ const apiKeys = new Set([
 
 const colors = [
   "#140c1c",
+  "#ffffff",
   "#442434",
   "#30346d",
   "#4e4a4e",
