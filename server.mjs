@@ -60,7 +60,7 @@ const wss = new WebSocket.Server({
     noServer: true,
 });
 
-const timeoutValue = 10;
+const timeoutValue = 3;
 
 function pickValidation(x, y, color) {
     return 0 <= x && x <= 256 &&
