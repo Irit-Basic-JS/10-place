@@ -99,6 +99,9 @@ server.on("upgrade", (req, socket, head) => {
         if (apiKey in apiKeys) {
             keysMap.set(ws, apiKey);
             wss.emit("connection", ws, req);
-        } else socket.destroy(new Error('wrong api key'));
+        } else {
+            ws.send(JSON.stringify({type: "wrongApi"}));
+          socket.destroy(new Error("Wrong api key"));
+        };
     });
 });
