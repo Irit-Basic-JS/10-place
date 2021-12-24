@@ -11,6 +11,7 @@ const apiKeys = new Set([
   "4a226908-aa3e-4a34-a57d-1f3d1f6cba84",
 ]);
 
+
 const colors = [
   "#140c1c",
   "#442434",
@@ -43,6 +44,11 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+/* --1-- */
+app.get("/api/getColors", (_, res) => {
+  res.json(colors);
+});
+
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
@@ -60,3 +66,59 @@ server.on("upgrade", (req, socket, head) => {
     wss.emit("connection", ws, req);
   });
 });
+
+/* --2-- */
+/*
+wss.on('connection', function connection(ws) {
+  ws.on('message', function message(data) {
+    console.log('received: %s', data);
+    const parsedData = JSON.parse(data);
+    switch (parsedData.type) {
+      case ('click'):
+        insertIntoSpace(parsedData.payload)
+    }
+  });
+  sendField(ws);
+}); 
+*/
+
+
+/* --7-- */           
+const insertIntoPlace = (payload) => {
+  place[size * payload.y + payload.x] = payload.color;
+
+  wss.clients.forEach(function each(client) {
+    if (client.readyState === WebSocket.OPEN) {
+      sendField(client);
+    }
+  });
+}
+
+const sendField = (ws) => {
+  const result = {
+    type: "place", // тип сообщения
+    payload: {
+      place: place,
+    }
+  }
+
+  ws.send(JSON.stringify(result));
+}
+
+/* --3-- */
+/* --8-- */
+wss.on('connection', function connection(ws) {
+  ws.on('message', function message(data) {
+    //перехватываем на сервере
+    const parsedData = JSON.parse(data);
+    console.log('received: %s', parsedData);
+/* --6-- */
+    switch (parsedData['type']) {
+      case ("click"):
+        insertIntoPlace(parsedData['payload'])
+    }
+  });
+
+  sendField(ws);
+});
+
