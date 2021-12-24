@@ -11,6 +11,8 @@ const apiKeys = new Set([
     "4a226908-aa3e-4a34-a57d-1f3d1f6cba84",
 ]);
 
+const clients = new WeakMap();
+
 const colors = [
     "#140c1c",
     "#442434",
@@ -57,6 +59,11 @@ const wss = new WebSocket.Server({
     noServer: true,
 });
 
+
+const isClickValid = info => isInside(info.x, 0, size) && isInside(info.y, 0, size) && colors.includes(info.color);
+
+const isInside = (value, minValue, maxValue) => minValue <= value && value <= maxValue;
+
 wss.on('connection', ws => {
     ws.on('message', data => {
         const parsedData = JSON.parse(data);
@@ -81,8 +88,20 @@ wss.on('connection', ws => {
 
 server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url, req.headers.origin);
-    console.log(url);
+    const apiKey = url.searchParams.get('apiKey');
+    if (!apiKeys.has(apiKey)) {
+        socket.destroy(new Error('Invalid api key'));
+        socket.on('error', error => console.error(error.message));
+        return;
+    }
+
     wss.handleUpgrade(req, socket, head, (ws) => {
+        clients.set(ws, apiKey);
+
+        socket.on('close', () => {
+            clients.delete(apiKey);
+        });
+
         wss.emit("connection", ws, req);
     });
 });
@@ -93,12 +112,4 @@ function sendToClients(data) {
             client.send(data);
         }
     });
-}
-
-function isClickValid(info) {
-    return isInside(info.x, 0, size) && isInside(info.y, 0, size) && colors.includes(info.color);
-}
-
-function isInside(value, minValue, maxValue) {
-    return minValue <= value && value <= maxValue;
 }
