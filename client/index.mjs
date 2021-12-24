@@ -8,13 +8,23 @@ document.querySelector("#start").addEventListener("submit", e => {
   document.querySelector(".container").classList.add("ready");
 });
 
+const receivedOnField = (message) => {
+  const result = JSON.parse(message?.['data'])
+
+  if (result['type'] === 'place')
+    drawer.putArray(result['payload']['place']);
+}
+
 const main = apiKey => {
   const ws = connect(apiKey);
-  ws.addEventListener("message", console.log);
+  ws.addEventListener("message", receivedOnField);
 
   timeout.next = new Date();
   drawer.onClick = (x, y) => {
-    drawer.put(x, y, picker.color);
+    ws.send(JSON.stringify({
+      type: "click",
+      payload: {x, y, color: picker.color}
+    }));
   };
 };
 
