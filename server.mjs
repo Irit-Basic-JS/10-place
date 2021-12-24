@@ -2,7 +2,7 @@ import * as path from "path";
 import express from "express";
 import WebSocket from "ws";
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 3000;
 
 const apiKeys = new Set([
   "4a83051d-aad4-483e-8fc8-693273d15dc7",
@@ -43,6 +43,11 @@ const app = express();
 
 app.use(express.static(path.join(process.cwd(), "client")));
 
+app.get("/api/getColors", (req, res) => {
+  console.log(colors);
+  res.json(colors);
+});
+
 app.get("/*", (_, res) => {
   res.send("Place(holder)");
 });
@@ -50,6 +55,7 @@ app.get("/*", (_, res) => {
 const server = app.listen(port);
 
 const wss = new WebSocket.Server({
+  port: 5000,
   noServer: true,
 });
 
@@ -59,4 +65,46 @@ server.on("upgrade", (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, (ws) => {
     wss.emit("connection", ws, req);
   });
+});
+
+wss.on('open', function open() {
+
+});
+
+const insertIntoPlace = (payload) => {
+  //TODO: проверить координаты и цвет тут
+
+  place[size * payload.y + payload.x] = payload.color;
+
+  wss.clients.forEach(function each(client) {
+    if (client.readyState === WebSocket.OPEN) {
+      sendField(client);
+    }
+  });
+}
+
+const sendField = (ws) => {
+  const result = {
+    type: "place", // тип сообщения
+    payload: {
+      place: place,
+    }
+  }
+
+  ws.send(JSON.stringify(result));
+}
+
+wss.on('connection', function connection(ws) {
+  ws.on('message', function message(data) {
+    // я ловлю
+    const parsedData = JSON.parse(data);
+    console.log('received: %s', parsedData);
+
+    switch (parsedData['type']) {
+      case ("click"):
+        insertIntoPlace(parsedData['payload'])
+    }
+  });
+
+  sendField(ws);
 });
