@@ -68,19 +68,19 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 /* --2-- */
-/*
-wss.on('connection', function connection(ws) {
-  ws.on('message', function message(data) {
-    console.log('received: %s', data);
-    const parsedData = JSON.parse(data);
-    switch (parsedData.type) {
-      case ('click'):
-        insertIntoSpace(parsedData.payload)
-    }
+/* --10-- */
+server.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url, req.headers.origin);
+  const userApiKey = url.searchParams.get('apiKey');
+  if (!apiKeys.has(userApiKey)) {
+    req.destroy(new Error('Incorrect API key'));
+    return;
+  }
+
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
   });
-  sendField(ws);
-}); 
-*/
+});
 
 
 /* --7-- */           
